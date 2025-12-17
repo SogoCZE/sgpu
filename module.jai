@@ -207,13 +207,56 @@ Memory_Layout :: struct {
 // ----------------------------- Global ------------------------------------
 
 gpu_init :: () {
+    auto_release_temp();
+    push_allocator(temp);
+
     result: VkResult;
 
+    optional_extensions: [..] string;
+    array_add(*optional_extensions, VK_KHR_SURFACE_EXTENSION_NAME);
+    array_add(*optional_extensions, "VK_KHR_win32_surface");
+    array_add(*optional_extensions, "VK_KHR_wayland_surface");
+    array_add(*optional_extensions, "VK_KHR_x11_surface");
+
+    // find extensions
+    enabled_extensions: [..] *u8;
+    {
+        count: u32;
+        result = vkEnumerateInstanceExtensionProperties(null, *count, null);
+        assert_vk_result(result);
+
+        available_extensions: [..] VkExtensionProperties;
+        array_resize(*available_extensions, count);
+
+        result = vkEnumerateInstanceExtensionProperties(null, *count, available_extensions.data);
+        assert_vk_result(result);
+
+        for optional : optional_extensions {
+            for available : available_extensions {
+                if optional == to_string(available.extensionName) {
+                    array_add(*enabled_extensions, optional.data);
+                    break available;
+                }
+            }
+        }
+    }
+
     app_info: VkApplicationInfo;
+    app_info.apiVersion = VK_API_VERSION_1_3;
+    app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+    app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+
+    create_info: VkInstanceCreateInfo;
+    create_info.pApplicationInfo = *app_info;
+    create_info.enabledExtensionCount = enabled_extensions.count.(u32);
+    create_info.ppEnabledExtensionNames = enabled_extensions.data;
+
+    result = vkCreateInstance(*create_info, null, *vk_instance);
+    assert_vk_result(result);
 }
 
 gpu_shutdown :: () {
-
+    vkDestroyInstance(vk_instance, null);
 }
 
 // ----------------------------- Memory ------------------------------------
@@ -352,8 +395,18 @@ gpu_draw_indexed_instanced :: (cmd: Gpu_Command_Buffer, vertex_data: Gpu_Ptr, in
 
 }
 
-
-
 #scope_module
 
+assert_vk_result :: (result: VkResult) {
+    assert(result == VkResult.SUCCESS);
+}
+
+
+vk_instance: VkInstance;
+vk_device: VkInstance;
+vk_physical_device: VkInstance;
+
 #import,file "modules/Vulkan_With_VMA/module.jai";
+
+#import "Basic";
+#import "String";
