@@ -6,12 +6,7 @@ Memory_Type :: enum {
     READBACK;
 }
 
-Memory_Layout :: struct {
-    size: s64;
-    align: s64;
-}
-
-gpu_malloc :: (size: u64, align: u64 = 0, memory_type: Memory_Type = .DEFAULT) -> (mapped: *void, gpu: Gpu_Ptr) {
+gpu_malloc :: (size: u64, memory_type: Memory_Type = .DEFAULT) -> (mapped: *void, gpu: Gpu_Ptr) {
     memory_flags: VkMemoryPropertyFlagBits;
     if #complete memory_type == {
         case .DEFAULT;

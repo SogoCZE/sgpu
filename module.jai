@@ -213,10 +213,6 @@ gpu_shutdown :: () {
 
 // ----------------------------- Textures ------------------------------------
 
-gpu_compute_texture_layout :: (desc: Gpu_Texture_Desc) -> Memory_Layout {
-    return .{};
-}
-
 gpu_create_texture :: (desc: Gpu_Texture_Desc, gpu_ptr: *void) -> Gpu_Texture {
     return 0;
 }
