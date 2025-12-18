@@ -12,14 +12,6 @@ Gpu_Command_Buffer :: #type,distinct u64;
 
 Gpu_Semaphore :: #type,distinct u64;
 
-Gpu_Ptr :: #type,distinct u64;
-
-Memory :: enum {
-    DEFAULT;
-    GPU;
-    READBACK;
-}
-
 Cull :: enum {
     NONE;
     CCW;
@@ -205,11 +197,6 @@ Gpu_Render_Pass_Desc :: struct {
     color_targets: [] Gpu_Render_Pass_Attachment_Desc;
 }
 
-Memory_Layout :: struct {
-    size: s64;
-    align: s64;
-}
-
 // ----------------------------- Global ------------------------------------
 
 gpu_init :: () {
@@ -221,20 +208,6 @@ gpu_shutdown :: () {
     vmaDestroyAllocator(vma);
     vkDestroyDevice(vk_device, null);
     vkDestroyInstance(vk_instance, null);
-}
-
-// ----------------------------- Memory ------------------------------------
-
-// #todo: use similar convetions to jai allocators?
-gpu_malloc :: (size: s64, align: s64 = 0, memory_type: Memory = .DEFAULT) -> *void {
-    return null;
-}
-
-gpu_free :: (ptr: *void) {
-}
-
-gpu_host_to_device_ptr :: (host: *void) -> Gpu_Ptr {
-    return 0;
 }
 
 
@@ -358,6 +331,8 @@ gpu_end_render_pass :: (cmd: Gpu_Command_Buffer) {
 gpu_draw_indexed_instanced :: (cmd: Gpu_Command_Buffer, vertex_data: Gpu_Ptr, index_data: Gpu_Ptr, index_count: u32, instance_count: u32) {
 
 }
+
+#load "memory.jai";
 
 #scope_module
 
@@ -609,6 +584,7 @@ create_device :: () {
                 queues[queue_index].index = queue_index_in_family;
                 queue_index += 1;
             }
+            all_queue_family_indices[it_index] = it.queueFamilyIndex;
         }
     }
 
@@ -650,6 +626,7 @@ Queue :: struct {
 }
 
 queues: [1 + 4 + 2] Queue;
+all_queue_family_indices: [3] u32;
 
 MAX_BUFFERS :: 10000;
 MAX_IMAGES :: 10000;
