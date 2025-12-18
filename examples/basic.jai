@@ -9,6 +9,10 @@ main :: () {
     gpu_free(ptr);
     gpu_free(gpu_ptr);
 
+    main_queue := gpu_get_queue(.MAIN, 0);
+
+    cmd_buff := gpu_start_command_recording(main_queue);
+
     gpu_shutdown();
 }
 

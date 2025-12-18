@@ -114,10 +114,10 @@ Signal :: enum {
     ATOMIC_OR;
 }
 
-Gpu_Queue_Type :: enum {
-    MAIN;
-    COMPUTE;
-    TRANSFER;
+Gpu_Queue_Type :: enum u8 {
+    MAIN        :: 0;
+    COMPUTE     :: 1;
+    TRANSFER    :: 2;
 }
 
 Stencil_Desc :: struct {
@@ -209,8 +209,10 @@ gpu_init :: () {
 gpu_shutdown :: () {
     vkDeviceWaitIdle(vk_device);
 
+    gpu_collect_garbage();
+
     for queues {
-        vkDestroyCommandPool(vk_device, it.cmd_pool, null);
+        vkDestroySemaphore(vk_device, it.timeline, null);
     }
 
     #if VALIDATION {
@@ -224,6 +226,9 @@ gpu_shutdown :: () {
     vkDestroyInstance(vk_instance, null);
 }
 
+gpu_collect_garbage :: () {
+
+}
 
 // ----------------------------- Textures ------------------------------------
 
@@ -258,17 +263,79 @@ gpu_free_pipeline :: (pipeline: Gpu_Pipeline) {
 
 gpu_get_queue :: (queue_type: Gpu_Queue_Type, queue_index: u32) -> Gpu_Queue {
     for queues {
-        if it.queue_type == queue_type && it.index == queue_index then return (it_index + 1).(Gpu_Queue);
+        if it.type == queue_type && it.index == queue_index then return (it_index + 1).(Gpu_Queue);
     }
     return 0;
 }
 
-gpu_start_command_recording :: (queue: Gpu_Queue) -> Gpu_Command_Buffer {
-    return 0;
+gpu_start_command_recording :: (queue_handle: Gpu_Queue) -> Gpu_Command_Buffer {
+    queue_index := queue_handle - 1;
+    assert(queue_index < queues.count);
+    queue := *queues[queue_index];
+
+    family_index := queue.type;
+
+    arena := *cmd_pools[family_index];
+
+    if arena.available_pools.count == 0 {
+        assert(arena.all_pools.count < MAX_COMMAND_POOLS);
+
+        new_pool: VkCommandPool;
+
+        create_info := VkCommandPoolCreateInfo.{
+            flags = .TRANSIENT_BIT,
+            queueFamilyIndex = queue.family,
+        };
+
+        vk_result := vkCreateCommandPool(vk_device, *create_info, null, *new_pool);
+        assert_vk_result(vk_result);
+        
+        new_buffer: VkCommandBuffer;
+
+        alloc_info := VkCommandBufferAllocateInfo.{
+            commandPool = new_pool,
+            level = .PRIMARY,
+            commandBufferCount = 1,
+        };
+
+        vk_result = vkAllocateCommandBuffers(vk_device, *alloc_info, *new_buffer);
+        assert_vk_result(vk_result);
+
+        _, pool := bucket_array_add(*arena.all_pools, .{
+            vk_cmd_pool = new_pool,
+            vk_cmd_buff = new_buffer,
+        });
+        array_add(*arena.available_pools, pool);
+    }
+
+    pool := pop(*arena.available_pools);
+    assert(pool != null);
+
+    // find an empty slot in the live pools list
+    found, index := array_find(live_pools, null);
+    // the list is preallocated to the maximum number of possible live command lists so this should never fail.
+    assert(found);
+
+    live_pools[index] = pool;
+
+    cmd_buff_handle := cast(Gpu_Command_Buffer) (index + 1);
+
+    begin_info := VkCommandBufferBeginInfo.{
+        flags = .ONE_TIME_SUBMIT_BIT
+    };
+    vkBeginCommandBuffer(pool.vk_cmd_buff, *begin_info);
+
+    return cmd_buff_handle;
 }
 
-gpu_submit :: (queue: Gpu_Queue, buffers: [] Gpu_Command_Buffer) {
+gpu_submit :: (queue: Gpu_Queue, buffer: Gpu_Command_Buffer) {
+    assert(buffer != 0);
+    index := (buffer - 1);
+    assert(index < live_pools.count);
+    pool := live_pools[index];
 
+
+    //vkQueueSubmit()
 }
 
 // ----------------------------- Semaphores ------------------------------------
@@ -641,16 +708,18 @@ create_device :: () {
             all_queue_family_indices[it_index] = it.queueFamilyIndex;
         }
 
-
-        // allocate command pools for each queue
+        // create the timeline semaphores for each queue:
         for * queues {
-            create_info := VkCommandPoolCreateInfo.{
-                flags = .TRANSIENT_BIT,
-                queueFamilyIndex = it.family,
+            timeline_create_info := VkSemaphoreTypeCreateInfo.{
+                semaphoreType = .TIMELINE,
+                initialValue = 0
+            };
+            create_info := VkSemaphoreCreateInfo.{
+                pNext = *timeline_create_info,
             };
 
-            vk_result := vkCreateCommandPool(vk_device, *create_info, null, *it.cmd_pool);
-            assert_vk_result(vk_result);
+            result = vkCreateSemaphore(vk_device, *create_info, null, *it.timeline);
+            assert_vk_result(result);
         }
     }
 
@@ -690,9 +759,9 @@ Queue :: struct {
     family: u32;
     index: u32;
     type: Gpu_Queue_Type;
-
-    // each queue has its own individual command pool.
-    cmd_pool: VkCommandPool;
+    
+    timeline: VkSemaphore;
+    timeline_value: u64;
 }
 
 queues := Queue.[
@@ -705,7 +774,32 @@ queues := Queue.[
     .{type = .TRANSFER, index = 1},
 ];
 
-all_queue_family_indices: [3] u32;
+NUM_QUEUE_FAMILIES :: 3;
+
+all_queue_family_indices: [NUM_QUEUE_FAMILIES] u32;
+
+
+MAX_COMMAND_POOLS :: 128;
+
+Command_Pool :: struct {
+    vk_cmd_pool: VkCommandPool;
+    vk_cmd_buff: VkCommandBuffer;
+}
+
+Command_Pool_Arena :: struct {
+    all_pools: Bucket_Array(Command_Pool, 32);
+    available_pools: [..] *Command_Pool;
+}
+
+cmd_pools: [NUM_QUEUE_FAMILIES] Command_Pool_Arena;
+
+Garbage :: struct(T: Type) {
+    submit_timeline_value: u64;
+    item: T;
+}
+
+live_pools: [MAX_COMMAND_POOLS * NUM_QUEUE_FAMILIES] *Command_Pool;
+garbage_pools: [..] Garbage(*Command_Pool);
 
 MAX_BUFFERS :: 10000;
 MAX_IMAGES  :: 10000;
@@ -748,3 +842,5 @@ vkCmdEndRenderingKHR : PFN_vkCmdEndRenderingKHR;
 #import "Basic";
 #import "String";
 #import "Math";
+#import "Bucket_Array";
+#import "Atomics";
