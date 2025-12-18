@@ -293,66 +293,6 @@ gpu_destroy_semaphore :: (semaphore: Gpu_Semaphore) {
 
 }
 
-// ----------------------------- Commands ------------------------------------
-
-gpu_memcpy :: (cmd: Gpu_Command_Buffer, dest: Gpu_Ptr, src: Gpu_Ptr) {
-
-}
-
-gpu_copy_to_texture :: (cmd: Gpu_Command_Buffer, dest: Gpu_Ptr, src: Gpu_Ptr, texture: Gpu_Texture) {
-
-}
-
-gpu_copy_from_texture :: (cmd: Gpu_Command_Buffer, dest: Gpu_Ptr, src: Gpu_Ptr, texture: Gpu_Texture) {
-
-}
-
-
-gpu_barrier :: (cmd: Gpu_Command_Buffer, before: Stage, after: Stage) {
-
-}
-
-gpu_signal_after :: (cmd: Gpu_Command_Buffer, before: Stage, ptr: Gpu_Ptr, value: u64, signal: Signal) {
-    
-}
-
-gpu_wait_before :: (cmd: Gpu_Command_Buffer, after: Stage, ptr: Gpu_Ptr, value: u64, op: Op, signal: Signal) {
-    
-}
-
-
-gpu_set_pipeline :: (cmd: Gpu_Command_Buffer, pipeline: Gpu_Pipeline) {
-
-}
-
-gpu_set_depth_stencil_state :: (cmd: Gpu_Command_Buffer, state: Gpu_Depth_Stencil_State) {
-
-}
-
-gpu_set_blend_state :: (cmd: Gpu_Command_Buffer, state: Gpu_Blend_State) {
-
-}
-
-gpu_dispatch :: (cmd: Gpu_Command_Buffer, dimensions: [3] u32) {
-
-}
-
-gpu_indirect_dispatch :: (cmd: Gpu_Command_Buffer, dimensions_gpu: Gpu_Ptr) {
-
-}
-
-gpu_begin_render_pass :: (cmd: Gpu_Command_Buffer, desc: Gpu_Render_Pass_Desc) {
-
-}
-
-gpu_end_render_pass :: (cmd: Gpu_Command_Buffer) {
-
-}
-
-gpu_draw_indexed_instanced :: (cmd: Gpu_Command_Buffer, vertex_data: Gpu_Ptr, index_data: Gpu_Ptr, index_count: u32, instance_count: u32) {
-
-}
-
 #load "memory.jai";
 #load "command_buffer.jai";
 

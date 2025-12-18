@@ -1,13 +1,27 @@
 main :: () {
     gpu_init();
 
-    ptr := gpu_malloc(1024);
-    _, gpu_ptr := gpu_malloc(1024, .GPU);
+    transfer_queue := gpu_get_queue(.TRANSFER, 0);
 
-    memset(ptr, 255, 1024);
+    {
+        buffer_size := 1024;
+        ptr, staging_ptr := gpu_malloc(buffer_size);
+        _, gpu_ptr := gpu_malloc(buffer_size, .GPU);
 
-    gpu_free(ptr);
-    gpu_free(gpu_ptr);
+        memset(ptr, 255, buffer_size);
+
+        cmd_buff := gpu_start_command_recording(transfer_queue);
+
+        gpu_memcpy(cmd_buff, gpu_ptr, staging_ptr, buffer_size);
+
+        gpu_submit(transfer_queue, cmd_buff);
+
+        gpu_wait_idle();
+
+
+        gpu_free(ptr);
+        gpu_free(gpu_ptr);
+    }
 
     main_queue := gpu_get_queue(.MAIN, 0);
     c1_queue := gpu_get_queue(.COMPUTE, 0);
