@@ -194,6 +194,8 @@ Command_Pool :: struct {
 }
 
 Command_Pool_Arena :: struct {
+    // bucket array is used here for pointer stability and to ensure stability of all elements after removal.
+    // this could just be a xar + free list.
     all_pools: Bucket_Array(Command_Pool, 32);
     available_pools: [..] *Command_Pool;
 }
