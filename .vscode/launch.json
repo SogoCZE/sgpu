@@ -5,7 +5,22 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch",
+            "name": "Basic - Windows",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/exampes/basic.exe",
+            "args": [
+            ],
+            "console":"integratedTerminal",
+            "logging": {
+                "moduleLoad": true,
+                "trace": true
+            },
+            "visualizerFile": "${workspaceFolder}/.vscode/jai.natvis",
+            "cwd": "${workspaceRoot}/examples",
+        },
+        {
+            "name": "Basic - Unix",
             "type": "lldb",
             "request": "launch",
             "program": "${workspaceFolder}/examples/basic",
