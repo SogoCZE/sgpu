@@ -355,6 +355,7 @@ Gpu_Render_Pass_Desc :: struct {
 gpu_init :: () {
     create_instance();
     create_device();
+    create_descriptor_buffer();
 }
 
 gpu_shutdown :: () {
@@ -378,6 +379,7 @@ gpu_shutdown :: () {
             vkDestroyDebugReportCallbackEXT(vk_instance, vk_debug_callback_handle, null);
         }
     }
+    vkDestroyDescriptorSetLayout(vk_device, bindless_set_layout, null);
     vmaDestroyAllocator(vma);
     vkDestroyDevice(vk_device, null);
     vkDestroyInstance(vk_instance, null);
@@ -457,6 +459,7 @@ gpu_destroy_semaphore :: (semaphore_handle: Gpu_Semaphore) {
 #load "memory.jai";
 #load "command_buffer.jai";
 #load "textures.jai";
+#load "bindless.jai";
 
 #scope_module
 
@@ -562,6 +565,7 @@ create_device :: () {
     array_add(*required_extensions, VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
     array_add(*required_extensions, VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     array_add(*required_extensions, "VK_KHR_synchronization2");
+    array_add(*required_extensions, "VK_EXT_descriptor_buffer");
     // #todo: praise the unified layouts! (still not widely available).
     //array_add(*required_extensions, "VK_KHR_unified_layouts");
 
