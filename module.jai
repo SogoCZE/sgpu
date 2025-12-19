@@ -40,6 +40,17 @@ Op :: enum {
     ALWAYS;
 }
 
+Load_Op :: enum {
+    LOAD        :: 0;
+    CLEAR       :: 1;
+    DONT_CARE   :: 2;
+}
+
+Store_Op :: enum {
+    STORE       :: 0;
+    DONT_CARE   :: 1;
+}
+
 Stencil_Op :: enum {
     KEEP;
     ZERO;
@@ -368,12 +379,12 @@ Gpu_View_Desc :: struct {
 }
 
 Gpu_Render_Pass_Attachment_Desc :: struct {
-    texture: Gpu_Texture;
-    load_op: Op;
-    store_op: Op;
+    view: Gpu_Texture_View;
+    load_op: Load_Op;
+    store_op: Store_Op;
     union {
         clear_value: float;
-        clear_color: [3] u8;
+        clear_color: [4] u32;
     };
 }
 
@@ -831,6 +842,7 @@ create_device :: () {
         #insert #run generate_get_device_proc_addr("vkGetDescriptorSetLayoutBindingOffsetEXT");
         #insert #run generate_get_device_proc_addr("vkGetDescriptorSetLayoutBindingOffsetEXT");
         #insert #run generate_get_device_proc_addr("vkGetDescriptorEXT");
+        #insert #run generate_get_device_proc_addr("vkCmdBindDescriptorBuffersEXT");
     }
 }
 
@@ -891,6 +903,9 @@ MAX_IMAGES  :: 10000;
 
 MAX_COMPUTE_QUEUES  :: 4;
 MAX_TRANSFER_QUEUES :: 2;
+
+// 16 seems like a reasonable cap on this. Prevents some unnecessary heap allocations
+MAX_ATTACHMENTS :: 16;
 
 vkCmdBeginRenderingKHR : PFN_vkCmdBeginRenderingKHR;
 vkCmdEndRenderingKHR : PFN_vkCmdEndRenderingKHR;

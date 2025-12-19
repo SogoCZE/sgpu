@@ -151,8 +151,15 @@ gpu_wait_before :: (cmd: Gpu_Command_Buffer, after: Stage, ptr: Gpu_Ptr, value: 
 }
 
 
-gpu_set_pipeline :: (cmd: Gpu_Command_Buffer, pipeline: Gpu_Pipeline) {
+gpu_set_pipeline :: (cmd: Gpu_Command_Buffer, pipeline_handle: Gpu_Pipeline) {
+    vk_cmd_buff := get_cmd_buff(cmd);
+    pipeline := pool_get(live_pipelines, pipeline_handle);
 
+    bind_point: VkPipelineBindPoint = ifx pipeline.type == .GRAPHICS then .GRAPHICS else .COMPUTE;
+
+    vkCmdBindPipeline(vk_cmd_buff, bind_point, pipeline.vk_pipeline);
+    // #todo: Do we need to rebind this every time? All the pipelines share the same pipeline layout so the binding is compatible.
+    bind_descriptor_buffer(vk_cmd_buff);
 }
 
 gpu_set_depth_stencil_state :: (cmd: Gpu_Command_Buffer, state: Gpu_Depth_Stencil_State) {
@@ -172,11 +179,79 @@ gpu_indirect_dispatch :: (cmd: Gpu_Command_Buffer, dimensions_gpu: Gpu_Ptr) {
 }
 
 gpu_begin_render_pass :: (cmd: Gpu_Command_Buffer, desc: Gpu_Render_Pass_Desc) {
+    vk_cmd_buff := get_cmd_buff(cmd);
 
+    color_attachments: [MAX_ATTACHMENTS] VkRenderingAttachmentInfo;
+
+    render_area: VkRect2D = .{offset = .{0, 0}};
+    layer_count: u32 = 1;
+    for desc.color_targets {
+        view := get_texture_view(it.view);
+        texture := get_texture(view.texture);
+        render_area.extent.width = texture.desc.dimensions[0];
+        render_area.extent.height = texture.desc.dimensions[1];
+        layer_count = texture.desc.layer_count;
+
+        color_attachments[it_index] = .{
+            imageView = view.vk_view,
+            imageLayout = .GENERAL,
+            resolveMode = .NONE,
+            loadOp = it.load_op.(VkAttachmentLoadOp),
+            storeOp = it.store_op.(VkAttachmentStoreOp),
+            clearValue.color.uint32 = it.clear_color,
+        };
+    }
+
+    render_info := VkRenderingInfo.{
+        layerCount = layer_count,
+        colorAttachmentCount = desc.color_targets.count.(u32),
+        pColorAttachments = color_attachments.data,
+    };
+
+    depth_attachment: VkRenderingAttachmentInfo;
+    if desc.depth_target.view != 0 {
+        view := get_texture_view(desc.depth_target.view);
+        texture := get_texture(view.texture);
+        render_area.extent.width = texture.desc.dimensions[0];
+        render_area.extent.height = texture.desc.dimensions[1];
+
+        depth_attachment = .{
+            imageView = view.vk_view,
+            imageLayout = .GENERAL,
+            resolveMode = .NONE,
+            loadOp = desc.depth_target.load_op.(VkAttachmentLoadOp),
+            storeOp = desc.depth_target.store_op.(VkAttachmentStoreOp),
+            clearValue.depthStencil.depth = desc.depth_target.clear_value,
+        };
+        render_info.pDepthAttachment = *depth_attachment;
+    }
+    
+    stencil_attachment: VkRenderingAttachmentInfo;
+    if desc.stencil_target.view != 0 {
+        view := get_texture_view(desc.depth_target.view);
+        texture := get_texture(view.texture);
+        render_area.extent.width = texture.desc.dimensions[0];
+        render_area.extent.height = texture.desc.dimensions[1];
+
+        stencil_attachment = VkRenderingAttachmentInfo.{
+            imageView = view.vk_view,
+            imageLayout = .GENERAL,
+            resolveMode = .NONE,
+            loadOp = desc.stencil_target.load_op.(VkAttachmentLoadOp),
+            storeOp = desc.stencil_target.store_op.(VkAttachmentStoreOp),
+            clearValue.depthStencil.stencil = desc.stencil_target.clear_color[0],
+        };
+        render_info.pStencilAttachment = *stencil_attachment;
+    }
+
+    render_info.renderArea = render_area;
+
+    vkCmdBeginRendering(vk_cmd_buff, *render_info);
 }
 
 gpu_end_render_pass :: (cmd: Gpu_Command_Buffer) {
-
+    vk_cmd_buff := get_cmd_buff(cmd);
+    vkCmdEndRendering(vk_cmd_buff);
 }
 
 gpu_draw_indexed_instanced :: (cmd: Gpu_Command_Buffer, vertex_data: Gpu_Ptr, index_data: Gpu_Ptr, index_count: u32, instance_count: u32) {

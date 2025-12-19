@@ -68,7 +68,7 @@ gpu_texture_view :: (texture_handle: Gpu_Texture, desc: Gpu_View_Desc = .{}) -> 
     vk_result := vkCreateImageView(vk_device, *create_info, null, *vk_view);
     assert_vk_result(vk_result);
 
-    handle := pool_add(*live_views, .{desc, vk_view});
+    handle := pool_add(*live_views, .{desc, texture_handle, vk_view});
 
     array_add(*texture.views, handle);
 
@@ -90,6 +90,7 @@ Texture :: struct {
 
 Texture_View :: struct {
     desc: Gpu_View_Desc;
+    texture: Gpu_Texture;
     vk_view: VkImageView;
 }
 
@@ -118,4 +119,16 @@ cleanup_texture_view :: (view_handle: Gpu_Texture_View) {
     assert(removed);
 
     vkDestroyImageView(vk_device, view.vk_view, null);
+}
+
+get_texture :: (texture_handle: Gpu_Texture) -> *Texture{
+    texture := pool_get(live_textures, texture_handle);
+    assert(texture != null);
+    return texture;
+}
+
+get_texture_view :: (view_handle: Gpu_Texture_View) -> *Texture_View {
+    view := pool_get(live_views, view_handle);
+    assert(view != null);
+    return view;
 }

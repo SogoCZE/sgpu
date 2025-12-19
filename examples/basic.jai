@@ -30,17 +30,9 @@ main :: () {
         gpu_destroy_semaphore(semaphore);
     }
 
-    {
-        texture_desc := Gpu_Texture_Desc.{
-            format = .R8G8B8A8_UNORM,
-            dimensions = .[1024, 1024, 1],
-            usage = .SAMPLED | .TRANSFER_DST
-        };
-        texture := gpu_create_texture(texture_desc);
-        view := gpu_texture_view(texture);
-
-        gpu_free(texture);
-    }
+    main_queue := gpu_get_queue(.MAIN, 0);
+    c1_queue := gpu_get_queue(.COMPUTE, 0);
+    c2_queue := gpu_get_queue(.COMPUTE, 1);
 
     {
         vertex_file, _ := read_entire_file("shaders/basic_vs.spv");
@@ -64,12 +56,59 @@ main :: () {
 
         graphics_pipeline := gpu_create_graphics_pipeline(vertex_spv, pixel_spv, raster_desc);
 
-        gpu_free_pipeline(graphics_pipeline);
-    }
+        texture_desc := Gpu_Texture_Desc.{
+            format = .R8G8B8A8_UNORM,
+            dimensions = .[1024, 1024, 1],
+            usage = .COLOR_ATTACHMENT
+        };
+        texture := gpu_create_texture(texture_desc);
+        view := gpu_texture_view(texture);
 
-    main_queue := gpu_get_queue(.MAIN, 0);
-    c1_queue := gpu_get_queue(.COMPUTE, 0);
-    c2_queue := gpu_get_queue(.COMPUTE, 1);
+        Vertex2D :: struct {
+            x: float;
+            y: float;
+        }
+        vertex_buffer_ptr, vertex_gpu := gpu_malloc(6 * size_of(float));
+        vertex_buffer := cast(*Vertex2D) vertex_buffer_ptr;
+        vertex_buffer[0] = .{-0.5, +0.5};
+        vertex_buffer[1] = .{+0.5, +0.5};
+        vertex_buffer[2] = .{+0.0, -0.5};
+
+        index_buffer_ptr, index_gpu := gpu_malloc(3 * size_of(u32));
+        index_buffer := cast(*u32) index_buffer_ptr;
+        index_buffer[0] = 0;
+        index_buffer[1] = 1;
+        index_buffer[2] = 2;
+
+        cmd_buff := gpu_start_command_recording(main_queue);
+        {
+            render_desc := Gpu_Render_Pass_Desc.{
+                color_targets = .[
+                    .{
+                        view = view,
+                        load_op = .CLEAR,
+                        store_op = .STORE,
+                        clear_color = .[0, 0, 0, 0],
+                    }
+                ]
+            };
+            gpu_begin_render_pass(cmd_buff, render_desc);
+
+            gpu_set_pipeline(cmd_buff, graphics_pipeline);
+            gpu_draw_indexed_instanced(cmd_buff, vertex_gpu, index_gpu, 3, 1);
+
+            gpu_end_render_pass(cmd_buff);
+        }
+
+        gpu_submit(main_queue, cmd_buff);
+
+        gpu_wait_idle();
+
+        gpu_free(vertex_buffer);
+        gpu_free(index_buffer);
+        gpu_free_pipeline(graphics_pipeline);
+        gpu_free(texture);
+    }
 
     for 0..200 {
         for 0..127 {

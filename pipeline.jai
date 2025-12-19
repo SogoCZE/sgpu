@@ -14,8 +14,6 @@ gpu_create_graphics_pipeline :: (vertex_spirv: [] u8, pixel_spirv: [] u8, raster
         create_shader_stage(pixel_spirv, .FRAGMENT_BIT)
     ];
 
-    // 16 seems like a reasonable cap on this to prevent heap allocating for no reason here.
-    MAX_ATTACHMENTS :: 16;
     attachment_formats: [MAX_ATTACHMENTS] VkFormat;
 
     assert(raster_desc.color_targets.count < attachment_formats.count);
