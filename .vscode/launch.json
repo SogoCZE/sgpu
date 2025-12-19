@@ -28,7 +28,7 @@
             "env": {
                 "LD_LIBRARY_PATH": "${workspaceFolder}/bin"
             },
-            "cwd": "${workspaceFolder}"
+            "cwd": "${workspaceFolder}/examples"
         }
     ]
 }

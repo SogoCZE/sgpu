@@ -42,7 +42,30 @@ main :: () {
         gpu_free(texture);
     }
 
-    //graphics_pipeline := gpu_create_graphics_pipeline(.[], .[], .{});
+    {
+        vertex_file, _ := read_entire_file("shaders/basic_vs.spv");
+        pixel_file, _ := read_entire_file("shaders/basic_ps.spv");
+        vertex_spv: [] u8;
+        vertex_spv.data = vertex_file.data;
+        vertex_spv.count = vertex_file.count;
+        pixel_spv: [] u8;
+        pixel_spv.data = pixel_file.data;
+        pixel_spv.count = pixel_file.count;
+
+
+        blend_state: Gpu_Blend_Desc;
+        raster_desc := Gpu_Raster_Desc.{
+            cull = .CW,
+            color_targets = .[
+                .{format = .R8G8B8A8_UNORM}
+            ],
+            blend_state = *blend_state,
+        };
+
+        graphics_pipeline := gpu_create_graphics_pipeline(vertex_spv, pixel_spv, raster_desc);
+
+        gpu_free_pipeline(graphics_pipeline);
+    }
 
     main_queue := gpu_get_queue(.MAIN, 0);
     c1_queue := gpu_get_queue(.COMPUTE, 0);
@@ -68,3 +91,4 @@ main :: () {
 }
 
 #import,file "../../simp_gpu/module.jai"(VALIDATION = true);
+#import "File";

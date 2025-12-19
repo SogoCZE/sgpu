@@ -412,6 +412,8 @@ gpu_shutdown :: () {
             vkDestroyDebugReportCallbackEXT(vk_instance, vk_debug_callback_handle, null);
         }
     }
+
+    vkDestroyPipelineLayout(vk_device, vk_pipeline_layout, null);
     destroy_bindless_buffer();
     vkDestroyDescriptorSetLayout(vk_device, bindless_set_layout, null);
     vmaDestroyAllocator(vma);
@@ -752,6 +754,7 @@ create_device :: () {
             variablePointersStorageBuffer = VK_TRUE,
             variablePointers = VK_TRUE,
             storagePushConstant16 = VK_TRUE,
+            shaderDrawParameters = VK_TRUE,
         };
         chain = *vk11_features;
 
