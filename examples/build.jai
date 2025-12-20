@@ -3,18 +3,23 @@
 #run {
     set_build_options_dc(.{do_output = false});
 
-    w := compiler_create_workspace();
+    compile_example("basic");
+    compile_example("instanced_drawing");
+}
+
+compile_example :: (name: string) {
+    w := compiler_create_workspace(name);
     options := get_build_options();
     options.output_type = .EXECUTABLE;
-    options.output_executable_name = "basic";
+    options.output_executable_name = name;
 
-	if OS == .LINUX {
-		compiler_add_library_search_directory(gcc_lib_dir());
+    if OS == .LINUX {
+        compiler_add_library_search_directory(gcc_lib_dir());
     }
 
     set_build_options(options, w);
 
-    add_build_file("basic.jai", w);
+    add_build_file(tprint("%.jai", name), w);
 }
 
 gcc_lib_dir :: () -> string {
