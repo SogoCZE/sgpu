@@ -1,17 +1,17 @@
 main :: () {
     gpu_init();
+    defer gpu_shutdown();
 
     window := create_window(1280, 720, "Sample window");
+    
     window_type: Native_Window_Type = #ifx OS == .WINDOWS then .WIN32 else .X11;
     gpu_init_swapchain(window, window_type);
+    defer gpu_destroy_swapchain();
 
     v_success, vertex_spv := compile_shader("../shaders/textured_vs.slang");
     assert(v_success);
     p_success, pixel_spv := compile_shader("../shaders/textured_ps.slang");
     assert(p_success);
-
-    texture, view := load_texture("../sample.png", .R8G8B8A8_SRGB);
-    sampler := gpu_create_sampler(.{ });
 
     blend_state: Gpu_Blend_Desc;
     raster_desc := Gpu_Raster_Desc.{
@@ -23,13 +23,23 @@ main :: () {
     };
 
     graphics_pipeline := gpu_create_graphics_pipeline(vertex_spv, pixel_spv, raster_desc);
+    defer gpu_free_pipeline(graphics_pipeline);
+
+
+    texture, view := load_texture("../sample.png", .R8G8B8A8_SRGB);
+    sampler := gpu_create_sampler(.{ });
+    defer gpu_free(texture);
+    defer gpu_free(sampler);
 
     gpu_arena := gpu_make_arena(1024);
+    defer gpu_free_arena(gpu_arena);
 
     vertex_buffer, vertex_gpu := gpu_arena_alloc(*gpu_arena, [4] Vector2);
     vertex_buffer.* =  Vector2.[.{0.5, 0.5}, .{0.5, -0.5}, .{-0.5, -0.5}, .{-0.5, +0.5} ];
+
     vertex_uvs, uvs_gpu := gpu_arena_alloc(*gpu_arena, [4] Vector2);
     vertex_uvs.* = Vector2.[ .{1.0, 1.0}, .{1, 0.}, .{0., 0.}, .{0., 1} ];
+
     param_block, vertex_params_gpu := gpu_arena_alloc(*gpu_arena, [2] Gpu_Ptr);
     param_block.* = Gpu_Ptr.[ vertex_gpu, uvs_gpu ];
 
@@ -84,14 +94,6 @@ main :: () {
     }
 
     gpu_wait_idle();
-
-    gpu_free(texture);
-    gpu_free_arena(gpu_arena);
-    gpu_free_pipeline(graphics_pipeline);
-
-    gpu_destroy_swapchain();
-
-    gpu_shutdown();
 }
 
 load_texture :: (filename: string, format: Format) -> Gpu_Texture, Gpu_Texture_View {
@@ -101,6 +103,7 @@ load_texture :: (filename: string, format: Format) -> Gpu_Texture, Gpu_Texture_V
 
     width, height, num_channels: s32 = 0;
     pixels := stbi_load(temp_c_string(filename), *width, *height, *num_channels, 4);
+    defer stbi_image_free(pixels);
 
     assert(pixels != null && width > 0 && height > 0 && num_channels == 4);
 
@@ -112,6 +115,8 @@ load_texture :: (filename: string, format: Format) -> Gpu_Texture, Gpu_Texture_V
 
     staging_size := 4 * width * height;
     staging, staging_gpu := gpu_malloc(staging_size);
+    defer gpu_free(staging);
+
     memcpy(staging, pixels, staging_size);
 
     // #todo: use a transfer queue. make this non-blocking as well.
@@ -124,16 +129,12 @@ load_texture :: (filename: string, format: Format) -> Gpu_Texture, Gpu_Texture_V
 
     gpu_wait_idle();
 
-    gpu_free(staging);
-
-    stbi_image_free(pixels);
-
     view := gpu_texture_view(texture);
 
     return texture, view;
 }
 
-#import,file "../../simp_gpu/module.jai"(VALIDATION = false, ENABLE_RENDER_CAPTURE = true);
+#import,file "../../simp_gpu/module.jai"(VALIDATION = false, ENABLE_RENDER_CAPTURE = false);
 #import "Basic";
 #import "Window_Creation"(DEFAULT_MSAA = 1);
 #import "Input";

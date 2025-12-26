@@ -184,6 +184,11 @@ gpu_create_sampler :: (desc: Gpu_Sampler_Desc) -> Gpu_Sampler {
     return handle;
 }
 
+gpu_free :: (sampler: Gpu_Sampler) {
+    removed := pool_remove(*live_samplers, sampler);
+    assert(removed);
+}
+
 #scope_module
 
 Texture :: struct {
