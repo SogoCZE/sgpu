@@ -1,6 +1,6 @@
 #scope_export
 
-gpu_create_texture :: (desc: Gpu_Texture_Desc) -> Gpu_Texture {
+gpu_create_texture :: (desc: Gpu_Texture_Desc, optional_signal_texture_ready: [] Gpu_Timeline_Pair = .[]) -> Gpu_Texture {
     image_create_info := VkImageCreateInfo.{
         format = desc.format.(VkFormat),
         extent = VkExtent3D.{desc.dimensions[0], desc.dimensions[1], desc.dimensions[2]},
@@ -60,10 +60,7 @@ gpu_create_texture :: (desc: Gpu_Texture_Desc) -> Gpu_Texture {
 
     vkCmdPipelineBarrier2(vk_cmd_buff, *dep_info);
 
-    gpu_submit(cmd_buff);
-
-    // #todo: There is insufficient synchronization here. If the image is used in a compute queue
-    // there could be a race between any compute operation and this transition. needs to use a semaphore
+    gpu_submit(cmd_buff, signals = optional_signal_texture_ready);
 
     return handle;
 }
