@@ -289,6 +289,13 @@ gpu_draw_indexed_instanced :: (cmd: Gpu_Command_Buffer, vertex_data: Gpu_Ptr, pi
 }
 
 
+/** Queue resource for deletion when this command buffer finishes execution */
+gpu_enqueue_destroy :: (queue_handle: Gpu_Queue, cmd: Gpu_Command_Buffer, gpu_ptr: Gpu_Ptr) {
+    queue := get_queue(queue_handle);
+    garbage_list := *garbage_allocations[queue.type];
+    array_add(garbage_list, .{queue.timeline_value, gpu_ptr});
+}
+
 #scope_module
 
 MAX_COMMAND_POOLS :: 128;
@@ -308,14 +315,22 @@ Command_Pool_Arena :: struct {
 cmd_pools: [NUM_QUEUE_FAMILIES] Command_Pool_Arena;
 
 Garbage_Command_Pool :: struct {
-    submit_timeline_value: u64;
+    queue_submit_timeline_value: u64;
     pool: *Command_Pool;
+}
+
+Garbage_Allocation :: struct {
+    // #todo: should we support multiple queues referencing this object or just a single one?
+    queue_submit_timeline_value: u64;
+    ptr: Gpu_Ptr;
 }
 
 live_pools: [MAX_COMMAND_POOLS * NUM_QUEUE_FAMILIES] *Command_Pool;
 cmd_buffer_indices: Table(Gpu_Command_Buffer, s64);
+
 // #TODO: fixed size allocation but can resizeable count within that buffer.
 garbage_pools: [NUM_QUEUE_FAMILIES] [..] Garbage_Command_Pool;
+garbage_allocations: [NUM_QUEUE_FAMILIES] [..] Garbage_Allocation;
 
 reclaim_completed_command_pools :: () {
     for * arena, queue_index : cmd_pools {
@@ -325,11 +340,18 @@ reclaim_completed_command_pools :: () {
         assert_vk_result(vk_result);
 
         for garbage_pools[queue_index] {
-            if it.submit_timeline_value <= current_timeline_value {
+            if it.queue_submit_timeline_value <= current_timeline_value {
                 vk_result = vkResetCommandPool(vk_device, it.pool.vk_cmd_pool, 0);
                 assert_vk_result(vk_result);
                 
                 array_add(*arena.available_pools, it.pool);
+                remove it;
+            }
+        }
+        for garbage_allocations[queue_index] {
+            if it.queue_submit_timeline_value <= current_timeline_value {
+                gpu_free(it.ptr);
+                
                 remove it;
             }
         }

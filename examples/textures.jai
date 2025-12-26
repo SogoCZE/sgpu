@@ -31,7 +31,10 @@ main :: () {
     defer gpu_free_pipeline(graphics_pipeline);
 
 
-    texture, view := load_texture("../sample.png", .R8G8B8A8_SRGB);
+    upload_complete_semaphore := gpu_create_semaphore(0);
+    defer gpu_destroy_semaphore(upload_complete_semaphore);
+
+    texture, view := load_texture("../sample.png", .R8G8B8A8_SRGB, .{upload_complete_semaphore, 1});
     sampler := gpu_create_sampler(.{ });
     defer gpu_free(texture);
     defer gpu_free(sampler);
@@ -59,6 +62,9 @@ main :: () {
     pixel_data.* = u32.[ view.(u32), sampler.(u32) ];
 
     main_queue := gpu_get_queue(.MAIN, 0);
+
+    // ensure all texture uploads are complete before starting to render
+    gpu_wait_semaphore(.{upload_complete_semaphore, 1});
 
     quit := false;
     while !quit {
@@ -106,7 +112,7 @@ main :: () {
     gpu_wait_idle();
 }
 
-load_texture :: (filename: string, format: Format) -> Gpu_Texture, Gpu_Texture_View {
+load_texture :: (filename: string, format: Format, upload_complete_timeline: Gpu_Timeline_Pair) -> Gpu_Texture, Gpu_Texture_View {
     assert(format == .R8G8B8A8_SRGB);
 
     stbi_set_flip_vertically_on_load(1);
@@ -125,19 +131,17 @@ load_texture :: (filename: string, format: Format) -> Gpu_Texture, Gpu_Texture_V
 
     staging_size := 4 * width * height;
     staging, staging_gpu := gpu_malloc(staging_size);
-    defer gpu_free(staging);
 
     memcpy(staging, pixels, staging_size);
 
-    // #todo: use a transfer queue. make this non-blocking as well.
-    transfer_queue := gpu_get_queue(.MAIN, 0);
+    transfer_queue := gpu_get_queue(.TRANSFER, 0);
     cmd_buff := gpu_start_command_recording(transfer_queue);
+
+    gpu_enqueue_destroy(transfer_queue, cmd_buff, staging_gpu);
 
     gpu_copy_to_texture(cmd_buff, texture, staging_gpu);
 
-    gpu_submit(transfer_queue, cmd_buff);
-
-    gpu_wait_idle();
+    gpu_submit(transfer_queue, cmd_buff, signals = .[upload_complete_timeline]);
 
     view := gpu_texture_view(texture);
 
