@@ -814,11 +814,8 @@ create_device :: () {
             descriptorIndexing = VK_TRUE,
             runtimeDescriptorArray = VK_TRUE,
             scalarBlockLayout = VK_TRUE,
-            shaderBufferInt64Atomics = VK_TRUE,
-            shaderFloat16 = VK_TRUE,
             shaderInputAttachmentArrayDynamicIndexing = VK_TRUE,
             shaderInputAttachmentArrayNonUniformIndexing = VK_TRUE,
-            shaderInt8 = VK_TRUE,
             shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
             shaderStorageBufferArrayNonUniformIndexing = VK_TRUE,
             shaderStorageImageArrayNonUniformIndexing = VK_TRUE,
@@ -827,10 +824,7 @@ create_device :: () {
             shaderUniformBufferArrayNonUniformIndexing = VK_TRUE,
             shaderUniformTexelBufferArrayDynamicIndexing = VK_TRUE,
             shaderUniformTexelBufferArrayNonUniformIndexing = VK_TRUE,
-            storageBuffer8BitAccess = VK_TRUE,
-            storagePushConstant8 = VK_TRUE,
             timelineSemaphore = VK_TRUE,
-            uniformAndStorageBuffer8BitAccess = VK_TRUE,
             vulkanMemoryModel = VK_TRUE,
             vulkanMemoryModelDeviceScope = VK_TRUE,
         };
@@ -840,7 +834,6 @@ create_device :: () {
             pNext = chain,
             variablePointersStorageBuffer = VK_TRUE,
             variablePointers = VK_TRUE,
-            storagePushConstant16 = VK_TRUE,
             shaderDrawParameters = VK_TRUE,
         };
         chain = *vk11_features;
