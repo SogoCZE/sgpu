@@ -55,6 +55,7 @@ main :: () {
 
     // Allocate a small block of memory where the pixel shader parameters will be stored.
     pixel_data, pixel_gpu := gpu_arena_alloc(*gpu_arena, [2] u32);
+    // texture views handles and sampler handles are directly usable as descriptor indices in the shader.
     pixel_data.* = u32.[ view.(u32), sampler.(u32) ];
 
     main_queue := gpu_get_queue(.MAIN, 0);

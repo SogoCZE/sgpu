@@ -4,9 +4,9 @@ Gpu_Pipeline :: #type,distinct s64;
 
 Gpu_Texture :: #type,distinct s64;
 
-Gpu_Texture_View :: #type,distinct s64;
+Gpu_Texture_View :: #type,distinct u32;
 
-Gpu_Sampler :: #type,distinct s64;
+Gpu_Sampler :: #type,distinct u32;
 
 Gpu_Depth_Stencil_State :: #type,distinct s64;
 
