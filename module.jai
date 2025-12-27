@@ -415,6 +415,20 @@ Gpu_View_Desc :: struct {
     layer_count: u16 = 0xFFFF;
 }
 
+Gpu_Dispatch_Args :: struct {
+    x: u32;
+    y: u32;
+    z: u32;
+}
+
+Gpu_Draw_Args :: struct {
+    index_count: u32;
+    instance_count: u32;
+    first_index: u32;
+    vertex_offset: s32;
+    first_instance: u32;
+}
+
 Gpu_Sampler_Desc :: struct {
     Filter :: enum {
         NEAREST :: 0;

@@ -209,8 +209,17 @@ gpu_dispatch :: (cmd: Gpu_Command_Buffer, data: Gpu_Ptr, dimensions: [3] u32) {
     vkCmdDispatch(vk_cmd_buff, dimensions[0], dimensions[1], dimensions[2]);
 }
 
-gpu_indirect_dispatch :: (cmd: Gpu_Command_Buffer, data: Gpu_Ptr, dimensions_gpu: Gpu_Ptr) {
+gpu_indirect_dispatch :: (cmd: Gpu_Command_Buffer, data: Gpu_Ptr, dimensions_gpu: Gpu_Ptr) -> Gpu_Result {
+    // not yet tested
+    vk_cmd_buff := get_cmd_buff(cmd);
 
+    result, indirect_buffer, offset := get_buffer_and_offset(dimensions_gpu);
+    return_if_error(result);
+
+    vkCmdPushConstants(vk_cmd_buff, vk_pipeline_layout, .COMPUTE_BIT, 2 * size_of(VkDeviceAddress), size_of(VkDeviceAddress), *data);
+    vkCmdDispatchIndirect(vk_cmd_buff, indirect_buffer, offset);
+
+    return .SUCCESS;
 }
 
 gpu_begin_render_pass :: (cmd: Gpu_Command_Buffer, desc: Gpu_Render_Pass_Desc) {
@@ -308,6 +317,10 @@ gpu_draw_indexed_instanced :: (cmd: Gpu_Command_Buffer, vertex_data: Gpu_Ptr, pi
     vkCmdDrawIndexed(vk_cmd_buff, index_count, instance_count, 0, 0, 0);
 
     return .SUCCESS;
+}
+
+gpu_draw_indexed_indirect :: (cmd: Gpu_Command_Buffer, vertex_data: Gpu_Ptr, pixel_data: Gpu_Ptr, index_data: Gpu_Ptr, args: Gpu_Ptr) -> Gpu_Result {
+    // #todo
 }
 
 
