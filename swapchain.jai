@@ -60,7 +60,7 @@ gpu_destroy_swapchain :: () {
     destroy_surface();
 }
 
-gpu_swapchain_acquire :: () -> Gpu_Texture_View {
+gpu_swapchain_acquire :: () -> Gpu_Result, Gpu_Texture_View {
     wait_next_frame();
 
     acquire_semaphore_index = (cpu_frame_timeline + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -71,7 +71,11 @@ gpu_swapchain_acquire :: () -> Gpu_Texture_View {
         cpu_frame_timeline += 1;
 
         queue_handle := gpu_get_queue(.MAIN, 0);
-        cmd_buff := gpu_start_command_recording(queue_handle);
+        result, cmd_buff := gpu_start_command_recording(queue_handle);
+        if result != .SUCCESS {
+            cpu_frame_timeline -= 1;
+            return result, 0;
+        }
 
         transition_swapchain_to_general(cmd_buff);
 
@@ -80,10 +84,12 @@ gpu_swapchain_acquire :: () -> Gpu_Texture_View {
             wait_semaphores = .[current_acquire_semaphore()],
         });
 
-        return swapchain_views[current_swapchain_index];
+        return .SUCCESS, swapchain_views[current_swapchain_index];
     }
 
-    return 0;
+    // #todo: this is not actually a success. acquire next image can return out of date and suboptimal which we 
+    // return as succeses but with invalid texture handles. This needs to be updated
+    return .SUCCESS, 0;
 }
 
 gpu_present :: () {

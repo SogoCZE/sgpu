@@ -30,7 +30,7 @@ main :: () {
         dimensions = .[1024, 1024, 1],
         usage = .COLOR_ATTACHMENT
     };
-    texture := gpu_create_texture(texture_desc);
+    _, texture := gpu_create_texture(texture_desc);
     view := gpu_texture_view(texture);
 
     Vertex2D :: struct {
@@ -68,7 +68,7 @@ main :: () {
     pixel_data, pixel_gpu := gpu_arena_alloc(*gpu_arena, [3] float);
     pixel_data.* = .[1., 0., 1.];
 
-    cmd_buff := gpu_start_command_recording(main_queue);
+    _, cmd_buff := gpu_start_command_recording(main_queue);
 
     {
         render_desc := Gpu_Render_Pass_Desc.{

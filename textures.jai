@@ -1,6 +1,6 @@
 #scope_export
 
-gpu_create_texture :: (desc: Gpu_Texture_Desc, optional_signal_texture_ready: [] Gpu_Timeline_Pair = .[]) -> Gpu_Texture {
+gpu_create_texture :: (desc: Gpu_Texture_Desc, optional_signal_texture_ready: [] Gpu_Timeline_Pair = .[]) -> Gpu_Result, Gpu_Texture {
     image_create_info := VkImageCreateInfo.{
         format = desc.format.(VkFormat),
         extent = VkExtent3D.{desc.dimensions[0], desc.dimensions[1], desc.dimensions[2]},
@@ -24,18 +24,17 @@ gpu_create_texture :: (desc: Gpu_Texture_Desc, optional_signal_texture_ready: []
 
     alloc_info: VmaAllocationInfo;
     vk_result := vmaCreateImage(vma, *image_create_info, *alloc_create_info, *image, *alloc, *alloc_info);
-    if vk_result != .SUCCESS {
-        return 0;
-    }
+    return_if_error(vk_result, 0);
 
     handle := pool_add(*live_textures, .{desc = desc, vk_image = image, allocation = alloc});
     if handle == 0 {
-        log_error("Exceeded maximum number of allocated textures (%)!", live_textures.max);
-        return 0;
+        return .ERROR_TEXTURE_LIMIT_EXCEEDED, 0;
     }
     
     transfer_queue := gpu_get_queue(.MAIN, 0);
-    cmd_buff := gpu_start_command_recording(transfer_queue);
+    result, cmd_buff := gpu_start_command_recording(transfer_queue);
+    return_if_error(result, 0);
+
     vk_cmd_buff := get_cmd_buff(cmd_buff);
 
     image_barrier := VkImageMemoryBarrier2.{
@@ -62,7 +61,7 @@ gpu_create_texture :: (desc: Gpu_Texture_Desc, optional_signal_texture_ready: []
 
     gpu_submit(cmd_buff, signals = optional_signal_texture_ready);
 
-    return handle;
+    return .SUCCESS, handle;
 }
 
 gpu_free :: (texture_handle: Gpu_Texture) {

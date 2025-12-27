@@ -1,6 +1,6 @@
 #scope_export
 
-gpu_start_command_recording :: (queue_handle: Gpu_Queue) -> Gpu_Command_Buffer {
+gpu_start_command_recording :: (queue_handle: Gpu_Queue) -> Gpu_Result, Gpu_Command_Buffer {
     // #TODO: should we do this on every command recording? uncertain.
     // currently this is the only thing that happens in collect garbage.
     // That will likely change so this will be less of a win but right
@@ -15,7 +15,9 @@ gpu_start_command_recording :: (queue_handle: Gpu_Queue) -> Gpu_Command_Buffer {
     arena := *cmd_pools[queue.global_index];
 
     if arena.available_pools.count == 0 {
-        assert(arena.all_pools.count < MAX_COMMAND_POOLS);
+        if arena.all_pools.count >= MAX_COMMAND_POOLS {
+            return .ERROR_COMMAND_BUFFER_LIMIT_EXCEEDED, 0;
+        }
 
         new_pool: VkCommandPool;
 
@@ -25,7 +27,7 @@ gpu_start_command_recording :: (queue_handle: Gpu_Queue) -> Gpu_Command_Buffer {
         };
 
         vk_result := vkCreateCommandPool(vk_device, *create_info, null, *new_pool);
-        assert_vk_result(vk_result);
+        return_if_error(vk_result, 0);
         
         new_buffer: VkCommandBuffer;
 
@@ -36,7 +38,7 @@ gpu_start_command_recording :: (queue_handle: Gpu_Queue) -> Gpu_Command_Buffer {
         };
 
         vk_result = vkAllocateCommandBuffers(vk_device, *alloc_info, *new_buffer);
-        assert_vk_result(vk_result);
+        return_if_error(vk_result, 0);
 
         _, pool := bucket_array_add(*arena.all_pools, .{
             vk_cmd_pool = new_pool,
@@ -46,13 +48,14 @@ gpu_start_command_recording :: (queue_handle: Gpu_Queue) -> Gpu_Command_Buffer {
     }
 
     pool := pop(*arena.available_pools);
-    assert(pool != null);
+    // There should never be a null pool in the list of available pools.
+    debug_assert(pool != null);
     pool.queue = queue_handle;
 
     // find an empty slot in the live pools list
     found, index := array_find(live_pools, null);
     // the list is preallocated to the maximum number of possible live command lists so this should never fail.
-    assert(found);
+    debug_assert(found);
 
     live_pools[index] = pool;
 
@@ -63,32 +66,33 @@ gpu_start_command_recording :: (queue_handle: Gpu_Queue) -> Gpu_Command_Buffer {
     begin_info := VkCommandBufferBeginInfo.{
         flags = .ONE_TIME_SUBMIT_BIT
     };
-    vkBeginCommandBuffer(pool.vk_cmd_buff, *begin_info);
+    vk_result := vkBeginCommandBuffer(pool.vk_cmd_buff, *begin_info);
+    return_if_error(vk_result, 0);
 
-    return cmd_buff_handle;
+    return .SUCCESS, cmd_buff_handle;
 }
 
 gpu_submit :: (cmd_buff: Gpu_Command_Buffer, signals: [] Gpu_Timeline_Pair = .[], waits: [] Gpu_Timeline_Pair = .[]) {
     submit_command_buffer(.{cmd_buff = cmd_buff, signal_timelines = signals, wait_timelines = waits });
 }
 
-gpu_memcpy :: (cmd: Gpu_Command_Buffer, dest: Gpu_Ptr, src: Gpu_Ptr, num_bytes: s64) {
+gpu_memcpy :: (cmd: Gpu_Command_Buffer, dest: Gpu_Ptr, src: Gpu_Ptr, num_bytes: s64) -> Gpu_Result {
     cmd_buff := get_cmd_buff(cmd);
 
-    dest_alloc_range := find_memory_range(dest);
-    src_alloc_range := find_memory_range(src);
+    dest_found, dest_alloc_range := find_memory_range(dest);
+    source_found, src_alloc_range := find_memory_range(src);
 
-    assert(dest_alloc_range.start != 0);
-    assert(src_alloc_range.start != 0);
+    if !dest_found then return .ERROR_OUT_OF_BOUNDS;
+    if !source_found then return .ERROR_OUT_OF_BOUNDS;
 
     // ensure the copy region is valid for both memory ranges.
     assert(dest + num_bytes.(Gpu_Ptr) <= dest_alloc_range.end);
     assert(src + num_bytes.(Gpu_Ptr) <= src_alloc_range.end);
 
     found_dest, dest_alloc := table_find(*gpu_allocations, dest_alloc_range.start);
-    assert(found_dest);
+    if !found_dest then return .ERROR_OUT_OF_BOUNDS;
     found_src, src_alloc := table_find(*gpu_allocations, src_alloc_range.start);
-    assert(found_src);
+    if !found_src then return .ERROR_OUT_OF_BOUNDS;
 
     region := VkBufferCopy.{
         dstOffset = (dest - dest_alloc.gpu_ptr).(u64),
@@ -97,15 +101,17 @@ gpu_memcpy :: (cmd: Gpu_Command_Buffer, dest: Gpu_Ptr, src: Gpu_Ptr, num_bytes: 
     };
 
     vkCmdCopyBuffer(cmd_buff, src_alloc.vk_buffer, dest_alloc.vk_buffer, 1, *region);
+
+    return .SUCCESS;
 }
 
-gpu_copy_to_texture :: (cmd: Gpu_Command_Buffer, dest: Gpu_Texture, src: Gpu_Ptr, mip: u32 = 0, layer_slice: [2] u32 = .[0, U32_MAX]) {
+gpu_copy_to_texture :: (cmd: Gpu_Command_Buffer, dest: Gpu_Texture, src: Gpu_Ptr, mip: u32 = 0, layer_slice: [2] u32 = .[0, U32_MAX]) -> Gpu_Result {
     texture := get_texture(dest);
-    assert(texture != null);
+    if !texture then return .ERROR_INVALID_TEXTURE;
     vk_cmd_buff := get_cmd_buff(cmd);
 
-    src_buffer, src_offset := get_buffer_and_offset(src);
-    assert(src_buffer != VK_NULL_HANDLE);
+    result, src_buffer, src_offset := get_buffer_and_offset(src);
+    return_if_error(result);
 
     base_layer := layer_slice[0];
     subresource := VkImageSubresourceLayers.{
@@ -125,6 +131,7 @@ gpu_copy_to_texture :: (cmd: Gpu_Command_Buffer, dest: Gpu_Texture, src: Gpu_Ptr
     };
 
     vkCmdCopyBufferToImage(vk_cmd_buff, src_buffer, texture.vk_image, .GENERAL, 1, *copy_region);
+    return .SUCCESS;
 }
 
 gpu_barrier :: (cmd: Gpu_Command_Buffer, before: Stage, after: Stage) {
@@ -275,16 +282,19 @@ gpu_end_render_pass :: (cmd: Gpu_Command_Buffer) {
     vkCmdEndRendering(vk_cmd_buff);
 }
 
-gpu_draw_indexed_instanced :: (cmd: Gpu_Command_Buffer, vertex_data: Gpu_Ptr, pixel_data: Gpu_Ptr, index_data: Gpu_Ptr, index_count: u32, instance_count: u32) {
+gpu_draw_indexed_instanced :: (cmd: Gpu_Command_Buffer, vertex_data: Gpu_Ptr, pixel_data: Gpu_Ptr, index_data: Gpu_Ptr, index_count: u32, instance_count: u32) -> Gpu_Result {
     vk_cmd_buff := get_cmd_buff(cmd);
 
     vkCmdPushConstants(vk_cmd_buff, vk_pipeline_layout, .VERTEX_BIT, 0, size_of(VkDeviceAddress), *vertex_data);
     vkCmdPushConstants(vk_cmd_buff, vk_pipeline_layout, .FRAGMENT_BIT, 1 * size_of(VkDeviceAddress), size_of(VkDeviceAddress), *pixel_data);
 
-    index_buffer, offset := get_buffer_and_offset(index_data);
+    result, index_buffer, offset := get_buffer_and_offset(index_data);
+    return_if_error(result);
 
     vkCmdBindIndexBuffer(vk_cmd_buff, index_buffer, offset.(VkDeviceSize), .UINT32);
     vkCmdDrawIndexed(vk_cmd_buff, index_count, instance_count, 0, 0, 0);
+
+    return .SUCCESS;
 }
 
 

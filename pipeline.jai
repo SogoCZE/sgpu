@@ -177,7 +177,7 @@ Pipeline :: struct {
 vk_pipeline_layout: VkPipelineLayout;
 live_pipelines: Pool(Gpu_Pipeline, Pipeline);
 
-create_global_pipeline_layout :: ()  -> bool {
+create_global_pipeline_layout :: ()  -> Gpu_Result {
     push_const_ranges: [NUM_SHADER_STAGES] VkPushConstantRange;
     ALL_STAGES :: #run enum_values_as_enum(Shader_Stage);
     for ALL_STAGES {
@@ -195,9 +195,9 @@ create_global_pipeline_layout :: ()  -> bool {
         pPushConstantRanges = push_const_ranges.data,
     };
     vk_result := vkCreatePipelineLayout(vk_device, *create_info, null, *vk_pipeline_layout);
-    assert_vk_result(vk_result);
+    return_if_error(vk_result);
 
-    return true;
+    return .SUCCESS;
 }
 
 create_shader_stage :: (spirv: [] u8, stage: VkShaderStageFlagBits) -> VkPipelineShaderStageCreateInfo {

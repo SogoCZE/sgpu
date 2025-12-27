@@ -71,12 +71,12 @@ main :: () {
             gpu_swapchain_resize();
         }
 
-        swapchain_image := gpu_swapchain_acquire();
+        _, swapchain_image := gpu_swapchain_acquire();
         if !swapchain_image {
             continue;
         }
 
-        cmd_buff := gpu_start_command_recording(main_queue);
+        _, cmd_buff := gpu_start_command_recording(main_queue);
         {
             render_desc := Gpu_Render_Pass_Desc.{
                 color_targets = .[

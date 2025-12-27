@@ -78,12 +78,12 @@ main :: () {
         }
 
         // Acquires the next available swapchain image. This will wait on the internal semaphores until a frame is ready
-        swapchain_image := gpu_swapchain_acquire();
+        _, swapchain_image := gpu_swapchain_acquire();
         if !swapchain_image {
             continue;
         }
 
-        cmd_buff := gpu_start_command_recording(main_queue);
+        _, cmd_buff := gpu_start_command_recording(main_queue);
         // Execute a render pass
         {
             render_desc := Gpu_Render_Pass_Desc.{
@@ -124,7 +124,7 @@ load_texture :: (filename: string, format: Format, upload_complete_timeline: Gpu
 
     assert(pixels != null && width > 0 && height > 0 && num_channels == 4);
 
-    texture := gpu_create_texture(.{
+    _, texture := gpu_create_texture(.{
         dimensions = .[xx width, xx height, 1],
         format = format,
         usage = .SAMPLED | .TRANSFER_DST,
@@ -136,7 +136,7 @@ load_texture :: (filename: string, format: Format, upload_complete_timeline: Gpu
     memcpy(staging, pixels, staging_size);
 
     transfer_queue := gpu_get_queue(.TRANSFER, 0);
-    cmd_buff := gpu_start_command_recording(transfer_queue);
+    _, cmd_buff := gpu_start_command_recording(transfer_queue);
 
     gpu_enqueue_destroy(transfer_queue, cmd_buff, staging_gpu);
 

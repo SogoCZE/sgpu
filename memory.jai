@@ -134,11 +134,11 @@ Gpu_Memory_Range :: struct {
 // Needs profiling.
 gpu_memory_ranges: [..] Gpu_Memory_Range;
 
-find_memory_range :: (ptr: Gpu_Ptr) -> Gpu_Memory_Range {
+find_memory_range :: (ptr: Gpu_Ptr) -> Gpu_Result, Gpu_Memory_Range {
     for gpu_memory_ranges {
-        if ptr >= it.start && ptr < it.end then return it;
+        if ptr >= it.start && ptr < it.end then return .SUCCESS, it;
     }
-    return .{};
+    return .ERROR_UNKNOWN_GPU_POINTER, .{};
 }
 
 remove_gpu_memory_range :: (start_ptr: Gpu_Ptr) -> bool {
@@ -159,15 +159,14 @@ get_buffer :: (gpu_ptr: Gpu_Ptr) -> VkBuffer {
     return alloc.vk_buffer;
 }
 
-get_buffer_and_offset :: (gpu_ptr: Gpu_Ptr) -> VkBuffer, s64 {
-    range := find_memory_range(gpu_ptr);
-    if range.start == 0 {
-        return VK_NULL_HANDLE, 0;
-    }
+get_buffer_and_offset :: (gpu_ptr: Gpu_Ptr) -> Gpu_Result, VkBuffer, s64 {
+    result, range := find_memory_range(gpu_ptr);
+    if result != .SUCCESS then return result, VK_NULL_HANDLE, 0;
+    debug_assert(range.start != 0);
 
     vk_buffer := get_buffer(range.start);
     debug_assert(vk_buffer != VK_NULL_HANDLE);
-    return vk_buffer, (gpu_ptr - range.start).(s64);
+    return .SUCCESS, vk_buffer, (gpu_ptr - range.start).(s64);
 }
 
 #import "Hash_Table";

@@ -15,7 +15,7 @@ main :: () {
             assert(ptr.*[it] == 255);
         }
 
-        cmd_buff := gpu_start_command_recording(transfer_queue);
+        _, cmd_buff := gpu_start_command_recording(transfer_queue);
 
         gpu_memcpy(cmd_buff, gpu_ptr_a, staging_ptr, count);
         gpu_barrier(cmd_buff, .TRANSFER, .TRANSFER);
@@ -52,14 +52,14 @@ main :: () {
 
     for outer: 0..200 {
         for inner: 0..127 {
-            cmd_buff := gpu_start_command_recording(main_queue);
+            _, cmd_buff := gpu_start_command_recording(main_queue);
 
             gpu_submit(cmd_buff);
 
-            cmd_buff = gpu_start_command_recording(c1_queue);
+            _, cmd_buff = gpu_start_command_recording(c1_queue);
             gpu_submit(cmd_buff);
 
-            cmd_buff = gpu_start_command_recording(c2_queue);
+            _, cmd_buff = gpu_start_command_recording(c2_queue);
             gpu_submit(cmd_buff);
         }
 

@@ -301,6 +301,27 @@ Gpu_Queue_Type :: enum u8 {
     TRANSFER    :: 2;
 }
 
+Gpu_Result :: enum s32 {
+    SUCCESS :: 0;
+    FATAL_MISSING_REQUIRED_EXTENSION;
+    FATAL_MISSING_REQUIRED_FEATURE;
+    FATAL_NO_SUITABLE_DEVICE_FOUND;
+
+    FATAL_OUT_OF_GPU_MEMORY;
+    FATAL_OUT_OF_CPU_MEMORY;
+
+    ERROR_COMMAND_BUFFER_LIMIT_EXCEEDED;
+    ERROR_TEXTURE_LIMIT_EXCEEDED;
+
+    ERROR_OUT_OF_BOUNDS;
+
+    ERROR_UNKNOWN_GPU_POINTER;
+    ERROR_INVALID_BUFFER;
+    ERROR_INVALID_TEXTURE;
+
+    FATAL_ERROR_UNKNOWN;
+}
+
 Stencil_Desc :: struct {
     test: Op = .ALWAYS;
     fail_op: Stencil_Op = .KEEP;
@@ -450,23 +471,24 @@ Gpu_Render_Pass_Desc :: struct {
 
 // ----------------------------- Global ------------------------------------
 
-gpu_init :: () -> bool {
+gpu_init :: () -> Gpu_Result {
     remember_allocator();
 
     #if ENABLE_RENDER_CAPTURE {
         gpu_capture_init();
     }
+
     result := create_instance();
-    if !result then return false;
+    return_if_error(result);
     result = create_device();
-    if !result then return false;
+    return_if_error(result);
     result = create_descriptor_buffer();
-    if !result then return false;
+    return_if_error(result);
 
     result = create_global_pipeline_layout();
-    if !result then return false;
+    return_if_error(result);
 
-    return true;
+    return .SUCCESS;
 }
 
 gpu_shutdown :: () {
@@ -540,13 +562,52 @@ assert_vk_result :: (result: VkResult) {
     assert(result == VkResult.SUCCESS);
 }
 
+// #todo: all these return_if_errors need to be cleaned up.
+return_if_error :: (vk_result: VkResult, v: $T) #expand {
+    if vk_result != .SUCCESS {
+        #if DEBUG_ASSERTS {
+            debug_break();
+        }
+        // #todo: convert VkResult to GpuResult
+        `return Gpu_Result.FATAL_ERROR_UNKNOWN, v;
+    }
+}
+
+return_if_error :: (vk_result: VkResult) #expand {
+    if vk_result != .SUCCESS {
+        #if DEBUG_ASSERTS {
+            debug_break();
+        }
+        // #todo: convert VkResult to GpuResult
+        `return Gpu_Result.FATAL_ERROR_UNKNOWN;
+    }
+}
+
+return_if_error :: (result: Gpu_Result, v: $T) #expand {
+    if result != .SUCCESS {
+        #if DEBUG_ASSERTS {
+            debug_break();
+        }
+        `return result, v;
+    }
+}
+
+return_if_error :: (result: Gpu_Result) #expand {
+    if result != .SUCCESS {
+        #if DEBUG_ASSERTS {
+            debug_break();
+        }
+        `return result;
+    }
+}
+
 debug_assert :: (arg: bool, message := "", args: ..Any, loc := #caller_location) #no_debug #expand {
     #if DEBUG_ASSERTS {
         assert(arg, message, args, loc);
     }
 }
 
-create_instance :: () -> bool {
+create_instance :: () -> Gpu_Result {
     auto_release_temp();
     push_allocator(temp);
 
@@ -620,7 +681,7 @@ create_instance :: () -> bool {
 
     result = vkCreateInstance(*create_info, null, *vk_instance);
     if result != .SUCCESS {
-        return false;
+        return .FATAL_MISSING_REQUIRED_EXTENSION;
     }
 
     #if VALIDATION {
@@ -636,10 +697,10 @@ create_instance :: () -> bool {
         }
     }
 
-    return true;
+    return .SUCCESS;
 }
 
-create_device :: () -> bool {
+create_device :: () -> Gpu_Result {
     auto_release_temp();
     push_allocator(temp);
 
@@ -666,7 +727,7 @@ create_device :: () -> bool {
         vkEnumeratePhysicalDevices(vk_instance, *physical_device_count, device_handles.data);
 
         if physical_device_count == 0 {
-            return false;
+            return .FATAL_NO_SUITABLE_DEVICE_FOUND;
         }
 
 
@@ -702,7 +763,7 @@ create_device :: () -> bool {
 
         if best_score == 0 {
             //assert(best_score > 0, "None of the available physical devices satisfy the minimum requirements!");
-            return false;
+            return .FATAL_NO_SUITABLE_DEVICE_FOUND;
         }
         vk_physical_device = device_handles[best_device_index];
         vkGetPhysicalDeviceProperties2(vk_physical_device, *vk_physical_device_properties);
@@ -834,9 +895,7 @@ create_device :: () -> bool {
         };
 
         result = vkCreateDevice(vk_physical_device, *create_info, null, *vk_device);
-        if result != .SUCCESS {
-            return false;
-        }
+        return_if_error(result);
     }
 
     // initialize the queues:
@@ -866,9 +925,7 @@ create_device :: () -> bool {
             };
 
             result = vkCreateSemaphore(vk_device, *create_info, null, *it.timeline);
-            if result != .SUCCESS {
-                return false;
-            }
+            return_if_error(result);
         }
     }
 
@@ -886,9 +943,7 @@ create_device :: () -> bool {
         };
 
         result = vmaCreateAllocator(*allocator_info, *vma);
-        if result != .SUCCESS {
-            return false;
-        }
+        return_if_error(result);
     }
 
     // load extension function pointers
@@ -902,10 +957,10 @@ create_device :: () -> bool {
         #insert #run generate_get_device_proc_addr("vkGetDescriptorEXT");
         #insert #run generate_get_device_proc_addr("vkCmdBindDescriptorBuffersEXT");
         #insert #run generate_get_device_proc_addr("vkCmdSetDescriptorBufferOffsetsEXT");
-        if !loaded_all_pfns then return false;
+        if !loaded_all_pfns then return .FATAL_MISSING_REQUIRED_FEATURE;
     }
 
-    return true;
+    return .SUCCESS;
 }
 
 generate_get_device_proc_addr :: (proc_name: string) ->string #compile_time {
