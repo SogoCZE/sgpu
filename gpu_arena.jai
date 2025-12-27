@@ -14,8 +14,8 @@ gpu_make_arena :: (size: s64) -> Gpu_Arena {
     return .{cpu = cpu, gpu = gpu, size = size};
 }
 
-gpu_arena_alloc :: (using arena: *Gpu_Arena, $type: Type) -> *type, Gpu_Ptr {
-    alignment := calculate_alignment(type);
+gpu_arena_alloc :: (using arena: *Gpu_Arena, $type: Type, min_alignment: s64 = 16) -> *type, Gpu_Ptr {
+    alignment := calculate_alignment(min_alignment);
     alloc_size := size_of(type);
     aligned_size := align_forward(alloc_size, alignment);
     if head + aligned_size >= size {
@@ -38,6 +38,6 @@ gpu_free_arena :: (arena: Gpu_Arena) {
 
 #scope_module
 
-calculate_alignment :: ($type: Type) -> s64 {
-    return max(vk_physical_device_properties.properties.limits.minStorageBufferOffsetAlignment.(s64), size_of(type));
+calculate_alignment :: (requested_alignment: s64) -> s64 {
+    return max(vk_physical_device_properties.properties.limits.minStorageBufferOffsetAlignment.(s64), requested_alignment);
 }
