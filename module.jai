@@ -522,7 +522,7 @@ gpu_shutdown :: () {
 }
 
 gpu_collect_garbage :: () {
-    reclaim_completed_command_pools();
+    collect_garbage_resources();
 }
 
 gpu_wait_idle :: () {

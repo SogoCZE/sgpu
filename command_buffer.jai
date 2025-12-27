@@ -2,12 +2,6 @@
 
 gpu_start_command_recording :: (queue_handle: Gpu_Queue) -> Gpu_Result, Gpu_Command_Buffer {
     // #TODO: should we do this on every command recording? uncertain.
-    // currently this is the only thing that happens in collect garbage.
-    // That will likely change so this will be less of a win but right
-    // now it eliminates the need for collecting garbage.
-    // It would also be much more efficient to bulk all the deletions at the same time
-    // rather than querying the timeline semaphores and comparing on every command recorder.
-    // How often are commands really recorded per frame? Not much, I doubt that overhead is significant.
     reclaim_completed_command_pools();
 
     queue := get_queue(queue_handle);
@@ -372,6 +366,16 @@ reclaim_completed_command_pools :: () {
                 remove it;
             }
         }
+    }
+}
+
+collect_garbage_resources :: () {
+    for * arena, queue_index : cmd_pools {
+        queue := *queues[queue_index];
+        current_timeline_value: u64;
+        vk_result := vkGetSemaphoreCounterValue(vk_device, queue.timeline, *current_timeline_value);
+        assert_vk_result(vk_result);
+
         for garbage_allocations[queue_index] {
             if it.queue_submit_timeline_value < current_timeline_value {
                 gpu_free(it.ptr);

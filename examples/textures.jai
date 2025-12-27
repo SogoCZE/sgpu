@@ -77,6 +77,9 @@ main :: () {
             gpu_swapchain_resize();
         }
 
+        // reclaims transient resources which were marked for deletion at the end of a command buffer execution.
+        gpu_collect_garbage();
+
         // Acquires the next available swapchain image. This will wait on the internal semaphores until a frame is ready
         _, swapchain_image := gpu_swapchain_acquire();
         if !swapchain_image {
