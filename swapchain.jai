@@ -162,6 +162,10 @@ gpu_get_frame_timeline :: () -> Gpu_Semaphore {
     return frame_timeline;
 }
 
+gpu_frame_index :: () -> u32 {
+    return current_swapchain_index;
+}
+
 #scope_module
 
 recreate_swapchain :: () {
