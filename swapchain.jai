@@ -259,7 +259,7 @@ create_surface :: () {
             vkCreateWin32SurfaceKHR = cast(PFN_vkCreateWin32SurfaceKHR) vkGetInstanceProcAddr(vk_instance, "vkCreateWin32SurfaceKHR");
         }
         vk_result := vkCreateWin32SurfaceKHR(vk_instance, *create_info, null, *vk_surface);
-        assert(vk_result);
+        assert_vk_result(vk_result);
     } else #if OS == .LINUX {
         if native_window_type == .WAYLAND {
             assert(false, "todo");

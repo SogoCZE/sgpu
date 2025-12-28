@@ -20,6 +20,21 @@
             "cwd": "${workspaceRoot}/examples/bin",
         },
         {
+            "name": "Textures - Windows",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/examples/bin/textures.exe",
+            "args": [
+            ],
+            "console":"integratedTerminal",
+            "logging": {
+                "moduleLoad": true,
+                "trace": true
+            },
+            "visualizerFile": "${workspaceFolder}/.vscode/jai.natvis",
+            "cwd": "${workspaceRoot}/examples/bin",
+        },
+        {
             "name": "Basic - Unix",
             "type": "lldb",
             "request": "launch",

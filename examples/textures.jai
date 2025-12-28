@@ -8,7 +8,7 @@ main :: () {
     
     // Initialize the swapchain with any native window handle
     window_type: Native_Window_Type = #ifx OS == .WINDOWS then .WIN32 else .X11;
-    gpu_init_swapchain(window, window_type);
+    gpu_init_swapchain(window.(u64), window_type);
     defer gpu_destroy_swapchain();
 
     // Built in slang shader compiler

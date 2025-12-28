@@ -2,7 +2,7 @@ main :: () {
     gpu_init();
 
     window := create_window(1280, 720, "Sample window");
-    gpu_init_swapchain(window, .X11);
+    gpu_init_swapchain(window.(u64), .X11);
 
     main_queue := gpu_get_queue(.MAIN, 0);
 
