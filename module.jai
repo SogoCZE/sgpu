@@ -534,7 +534,7 @@ gpu_init :: (optional_features: Gpu_Optional_Features = .NONE) -> Gpu_Result {
     return_if_error(result);
     result = create_device();
     return_if_error(result);
-    result = create_descriptor_buffer();
+    result = initialize_descriptors();
     return_if_error(result);
 
     result = create_global_pipeline_layout();
@@ -566,7 +566,7 @@ gpu_shutdown :: () {
     }
 
     vkDestroyPipelineLayout(vk_device, vk_pipeline_layout, null);
-    destroy_bindless_buffer();
+    destroy_descriptors();
     vkDestroyDescriptorSetLayout(vk_device, bindless_set_layout, null);
     vmaDestroyAllocator(vma);
     vkDestroyDevice(vk_device, null);
@@ -764,9 +764,12 @@ create_device :: () -> Gpu_Result {
     array_add(*required_extensions, VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
     array_add(*required_extensions, VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     array_add(*required_extensions, "VK_KHR_synchronization2");
-    array_add(*required_extensions, "VK_EXT_descriptor_buffer");
     // #todo: praise the unified layouts! (still not widely available).
     //array_add(*required_extensions, "VK_KHR_unified_layouts");
+
+    optional_extensions[Optional_Extension.DESCRIPTOR_BUFFER] = .{
+        name = "VK_EXT_descriptor_buffer",
+    };
 
     result: VkResult;
 
@@ -1022,13 +1025,37 @@ create_device :: () -> Gpu_Result {
             shaderInt16 = VK_TRUE,
         };
 
+        enabled_extensions: [..] *u8;
+        array_copy(*enabled_extensions, required_extensions);
+        {
+            available_extensions: [..] VkExtensionProperties;
+            extension_count: u32;
+            vkEnumerateDeviceExtensionProperties(vk_physical_device, null, *extension_count, null);
+            array_resize(*available_extensions, extension_count);
+            vkEnumerateDeviceExtensionProperties(vk_physical_device, null, *extension_count, available_extensions.data);
+
+            for * extension_to_check : optional_extensions {
+                extension_name := to_string(extension_to_check.name);
+
+                for available_extension: available_extensions {
+                    available_extension_name := to_string(available_extension.extensionName);
+                    if available_extension_name == extension_name {
+                        array_add(*enabled_extensions, extension_to_check.name);
+                        extension_to_check.supported = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+
         create_info := VkDeviceCreateInfo.{
             pNext = chain,
             queueCreateInfoCount = queue_create_infos.count.(u32),
             pQueueCreateInfos = queue_create_infos.data,
 
-            enabledExtensionCount = required_extensions.count.(u32),
-            ppEnabledExtensionNames = required_extensions.data,
+            enabledExtensionCount = enabled_extensions.count.(u32),
+            ppEnabledExtensionNames = enabled_extensions.data,
 
             pEnabledFeatures = *device_features,
         };
@@ -1114,6 +1141,22 @@ generate_get_device_proc_addr :: (proc_name: string) ->string #compile_time {
 
 // we remember the allocator passed into gpu_init and ensure all cpu allocations occur using that allocator.
 cpu_allocator: Allocator;
+
+Optional_Extension :: enum {
+    DESCRIPTOR_BUFFER :: 0;
+}
+
+Optional_Extension_Info :: struct {
+    name: *u8;
+    supported: bool;
+}
+
+optional_extensions: [#run enum_highest_value(Optional_Extension) + 1] Optional_Extension_Info;
+
+is_optional_ext_supported :: (ext: Optional_Extension) -> bool {
+    return optional_extensions[ext].supported;
+}
+
 requested_optional_features: Gpu_Optional_Features;
 
 vk_instance: VkInstance;
@@ -1121,6 +1164,8 @@ vk_physical_device: VkPhysicalDevice;
 vk_physical_device_properties: VkPhysicalDeviceProperties2;
 vk_device: VkDevice;
 vma: VmaAllocator;
+
+supports_descriptor_buffers: bool;
 
 Queue :: struct {
     vk_queue: VkQueue;
