@@ -16,6 +16,7 @@ main :: () {
     // Raw precompiled spirv can be passed to `gpu_create_compute_pipeline`
     // or the included slang shader compiler can be used to compile slang shaders.
     success, spirv := compile_shader("../shaders/compute.slang");
+    assert(success);
     pipeline := gpu_create_compute_pipeline(spirv);
     defer gpu_free_pipeline(pipeline);
 
@@ -23,8 +24,10 @@ main :: () {
     // It is required to support compute operations as well as graphics
     compute_queue := gpu_get_queue(.COMPUTE, 0);
     result=, cmd_buff := gpu_start_command_recording(compute_queue);
+    assert(result == .SUCCESS);
 
-    gpu_set_pipeline(cmd_buff, pipeline);
+    result = gpu_set_pipeline(cmd_buff, pipeline);
+    assert(result == .SUCCESS);
 
     // All shaders invocations in SGPU take as input a pointer to a block of user allocated memory.
     // That memory can be a block of parameters or it can be data to mutate. Entirely up to the programmer.
