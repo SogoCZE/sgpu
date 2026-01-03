@@ -1,23 +1,19 @@
 main :: () {
-    gpu_init();
+    result := gpu_init();
+    assert(result == .SUCCESS);
     defer gpu_shutdown();
 
     // Using Jai's standard window library
     // window creation can be replaced with glfw/sdl/native. Just pass the native handle into `gpu_init_swapchain`.
-    #if OS == .MACOS {
-        window := create_window_metal(1280, 720, "Sample window");
-    } else {
-        window := create_window(1280, 720, "Sample window");
-    }
+    window := create_native_window(1280, 720, "Sample Window");
 
-    #if OS == .WINDOWS {
-        gpu_init_swapchain(window.(u64), .WIN32);
-    } else #if OS == .LINUX {
-        gpu_init_swapchain(window.(u64), .X11);
-    } else if OS == .MACOS {
-        gpu_init_swapchain(window.(u64), .COCOA);
-    }
+    window_type: Native_Window_Type;
+    #if      OS == .WINDOWS then window_type = .WIN32;
+    else #if OS == .LINUX   then window_type = .X11;
+    else #if OS == .MACOS   then window_type = .COCOA;
+    else assert(false, "Unsupported OS");
 
+    gpu_init_swapchain(window, window_type);
     defer gpu_destroy_swapchain();
 
     // Built in slang shader compiler
@@ -163,14 +159,8 @@ load_texture :: (filename: string, format: Format, upload_complete_timeline: Gpu
 
 #import,file "../module.jai"(VALIDATION = true, ENABLE_RENDER_CAPTURE = false);
 #import "Basic";
-#import "Window_Creation"(DEFAULT_MSAA = 1);
 #import "Input";
 #import "stb_image";
 #import "Math";
 
-#if OS == .MACOS {
-    #import "Objective_C";
-    #import "Objective_C/AppKit";
-    #import "Metal";
-    #load "macos_window.jai";
-}
+#load "utils/window.jai";

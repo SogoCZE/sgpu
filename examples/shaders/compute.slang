@@ -7,7 +7,7 @@ ComputeParams<float> params;
 [shader("compute")]
 [numthreads(64)]
 void main(uint index: SV_DispatchThreadID) {
-    float* p = params.ptr();
+    float* p = params.get();
 
     // really boring shader which just sets the values of the buffer.
     p[index] = 1.0;

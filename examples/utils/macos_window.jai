@@ -62,3 +62,7 @@ ns_view_set_layer :: (self: *NSView, layer: *CALayer) {
     func = xx objc_msgSend;
     func(self, sel_registerName("setLayer:"), layer);
 }
+
+#import "Objective_C";
+#import "Objective_C/AppKit";
+#import "Metal";

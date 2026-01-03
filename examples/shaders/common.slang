@@ -20,7 +20,4 @@ struct ComputeParams<T> {
 
   [ForceInline]
   Ptr<T> get() { return data; }
-
-  [ForceInline]
-  T *ptr() { return data; }
 };

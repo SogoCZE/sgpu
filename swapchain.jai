@@ -290,10 +290,6 @@ create_surface :: () {
             pLayer = metal_layer, // CAMetalLayer*
         };
 
-        // if !vkCreateMetalSurfaceEXT {
-        //     vkCreateMetalSurfaceEXT = cast(PFN_vkCreateMetalSurfaceEXT) vkGetInstanceProcAddr(vk_instance, "vkCreateMetalSurfaceEXT");
-        // }
-
         vk_result := vkCreateMetalSurfaceEXT(vk_instance, *create_info, null, *vk_surface);
         assert_vk_result(vk_result);
     } else {
@@ -400,8 +396,6 @@ acquire_semaphore_index: u64;
 } else #if OS == .MACOS {
     #import "Objective_C";
     #import "Objective_C/AppKit";
-
-    // vkCreateXlibSurfaceKHR:
 
     ns_window_get_metal_layer :: (window: *NSWindow) -> *CAMetalLayer {
 

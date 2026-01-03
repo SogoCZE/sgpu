@@ -679,7 +679,6 @@ create_instance :: () -> Gpu_Result {
 
     // find extensions
     enabled_extensions: [..] *u8;
-
     array_add(*enabled_extensions, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
 
     #if VALIDATION {
@@ -772,9 +771,12 @@ create_device :: () -> Gpu_Result {
     array_add(*required_extensions, VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
     array_add(*required_extensions, VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     array_add(*required_extensions, "VK_KHR_synchronization2");
-    array_add(*required_extensions, "VK_KHR_portability_subset");
     // #todo: praise the unified layouts! (still not widely available).
     //array_add(*required_extensions, "VK_KHR_unified_layouts");
+
+    #if OS == .MACOS {
+        array_add(*required_extensions, "VK_KHR_portability_subset");
+    }
 
     if requested_optional_features & .DESCRIPTOR_BUFFER != 0 {
         optional_extensions[Optional_Extension.DESCRIPTOR_BUFFER] = .{
@@ -1095,7 +1097,7 @@ create_device :: () -> Gpu_Result {
             it.vk_family = queue_families[it.type].vk_family;
             vkGetDeviceQueue(vk_device, it.vk_family, it.index_in_type, *queues[it_index].vk_queue);
             if it.vk_queue == VK_NULL_HANDLE {
-                // return .FATAL_FAILED_TO_QUERY_QUEUE; // #todo: this doesn't need to be fatal but handling this is involved.
+                return .FATAL_FAILED_TO_QUERY_QUEUE; // #todo: this doesn't need to be fatal but handling this is involved.
             }
             it.global_index = it_index.(u32);
         }

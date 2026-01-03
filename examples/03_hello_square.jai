@@ -3,20 +3,15 @@ main :: () {
     assert(result == .SUCCESS);
     defer gpu_shutdown();
 
-    #if OS == .MACOS {
-        window := create_window_metal(1280, 720, "Sample window");
-    } else {
-        window := create_window(1280, 720, "Sample window");
-    }
+    window := create_native_window(1280, 720, "Sample Window");
 
     window_type: Native_Window_Type;
-
-    #if      OS == .WINDOWS then  window_type = .WIN32;
+    #if      OS == .WINDOWS then window_type = .WIN32;
     else #if OS == .LINUX   then window_type = .X11;
     else #if OS == .MACOS   then window_type = .COCOA;
     else assert(false, "Unsupported OS");
 
-    gpu_init_swapchain(window.(u64), window_type);
+    gpu_init_swapchain(window, window_type);
     defer gpu_destroy_swapchain();
 
     main_queue := gpu_get_queue(.MAIN, 0);
@@ -125,12 +120,6 @@ main :: () {
 
 #import,file "../module.jai"(VALIDATION = true);
 #import "Basic";
-#import "Window_Creation"(DEFAULT_MSAA = 1);
 #import "Input";
 
-#if OS == .MACOS {
-    #import "Objective_C";
-    #import "Objective_C/AppKit";
-    #import "Metal";
-    #load "macos_window.jai";
-}
+#load "utils/window.jai";
